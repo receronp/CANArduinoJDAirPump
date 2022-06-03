@@ -10,25 +10,12 @@ Copy the repository with one of the following commands:
 git clone https://github.com/receronp/CANArduinoJDAirPump.git
 ```
 
-```
-git clone git@github.com:receronp/CANArduinoJDAirPump.git
-```
-
-
-### Prerequisites
-
-- Install required Arduino libraries mcp_can and SPI.
-- Provide network credentials:
-```
-const char* ssid = "NETWORK_SSID";                        // Enter SSID
-const char* password = "NETWORK_PASS";                    // Enter Password
-```
-
 ## Authors
 
-* **Raul Ceron** - *Initial work* - [receronp](https://github.com/receronp)
-* **Jesus Flores** - *Initial work* - [JesusFloro](https://github.com/JesusFloro)
+* **Jesus Flores A00822256** - *Initial work* - [JesusFloro](https://github.com/JesusFloro)
+    - IoT Cloud Developer 
+    - email: a00822256@tec.mx
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+* **Raul Ceron A00823906** - *Initial work* - [receronp](https://github.com/receronp)
+    - FreeRTOS & CAN Developer 
+    - email: a00823906@tec.mx
