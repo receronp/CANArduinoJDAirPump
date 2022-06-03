@@ -36,6 +36,7 @@
 #define rxError 5
 #define rxVibrator 4
 
+int errorNumber = 0;
 int canErrorCounter;
 int rawPressure;
 int compressor;
@@ -74,7 +75,6 @@ void setup()
   */
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo();
-  delay(10000);
   getPressure = 0;
   vibration = false;
   showMessage = "";
@@ -96,11 +96,97 @@ void setup()
   Serial.println("Setup has finished");
 }
 
+void dashboard()
+{
+  // error handler
+  // rxPressure 7
+  // rxErrorCounter 6
+  // rxError 5
+  // rxVibrator 4
+
+  errorNumber = rxBuf[rxError];
+
+  // showMessage = "This error has happen :" ;
+  // strcat(showMessage, sprintf(rxBuf[rxErrorCounter], "%c", 255);
+  // strcat(showMessage, " times...");
+  canErrorCounter = rxBuf[rxErrorCounter];
+
+  if (errorNumber != 0)
+  {
+    compressor = 0;
+  }
+
+  switch (errorNumber)
+  {
+  case 0: // NO ERROR
+    showMessage = "Inflating Tire";
+    rawPressure = rxBuf[rxPressure];
+    getPressure = rawPressure * 20.0 / 151.0;
+
+    if (getPressure + 2 >= setPoint && getPressure - 1 <= setPoint)
+    {
+      getPressure = setPoint;
+    }
+    vibration = rxBuf[rxVibrator];
+
+    if (getPressure < setPoint)
+      compressor = 1;
+    else
+      compressor = 0;
+
+    // delay(500);
+    if (rxBuf[rxVibrator] == 1 and compressor == 1)
+    {
+      showMessage = "Tire...";
+    }
+    else if (rxBuf[rxVibrator] == 1 and compressor == 0 or rxBuf[rxVibrator] == 0 and compressor == 1)
+    {
+      Serial.println("Vibration Error");
+    }
+
+    break;
+  case 1:
+    Serial.println(showMessage);
+    showMessage = "Data Valid but Above Normal Operational Range";
+    break;
+  case 2:
+    Serial.println(showMessage);
+    showMessage = "Data Valid but Below Normal Operational Range";
+    break;
+  case 3:
+    Serial.println(showMessage);
+    showMessage = "Data Erratic, Intermittent or Incorrect";
+    break;
+  case 4:
+    Serial.println(showMessage);
+    showMessage = "Voltage Above Normal, or Shorted to High Source";
+    break;
+  case 5:
+    Serial.println(showMessage);
+    showMessage = "Voltage Below Normal, or Shorted to Low Source";
+    break;
+  case 6:
+    Serial.println(showMessage);
+    showMessage = "Current Below Normal or Open Circuit";
+    break;
+  case 7:
+    Serial.println(showMessage);
+    showMessage = "Current Above Normal or Grounded Circuit";
+    break;
+  case 8:
+    Serial.println(showMessage);
+    showMessage = "Overload or Grounded Circuit"; // Software Fuse is blown
+    break;
+  }
+  return;
+}
+
 void CAN()
 {
   if (!digitalRead(CAN0_INT)) // If CAN0_INT pin is low, read receive buffer
   {
     CAN0.readMsgBuf(&rxId, &len, rxBuf); // Read data: len = data length, buf = data byte(s)
+    dashboard();
 
     if ((rxId & 0x80000000) == 0x80000000) // Determine if ID is standard (11 bits) or extended (29 bits)
       sprintf(msgString, "Extended ID: 0x%.8lX  DLC: %1d  Data:", (rxId & 0x1FFFFFFF), len);
