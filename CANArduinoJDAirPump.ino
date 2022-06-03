@@ -28,6 +28,15 @@
 #include "thingProperties.h"
 #include <mcp_can.h>
 #include <SPI.h>
+#include <time.h>
+
+// timer variables
+#define totalErrors 9
+#define timeToBlow 30
+#define reset 26
+int errorNumber = 0, lastError = 0, prev = 0;
+int occ[totalErrors];
+int startTime[totalErrors], endTime[totalErrors], tempTime[totalErrors], finalTime[totalErrors];
 
 // RX pointers
 #define sizeCharArray 128
@@ -36,7 +45,6 @@
 #define rxError 5
 #define rxVibrator 4
 
-int errorNumber = 0;
 int canErrorCounter;
 int rawPressure;
 int compressor;
@@ -80,6 +88,17 @@ void setup()
   showMessage = "";
   setPoint = 0.0;
   compressor = 0;
+
+  int x = 0;
+  while (x < totalErrors)
+  {
+    occ[x] = 0;
+    startTime[x] = 0;
+    endTime[x] = 0;
+    tempTime[x] = 0;
+    finalTime[x] = 0;
+    x++;
+  }
   canErrorCounter = 0;
   compressor = 0;
 
@@ -92,8 +111,86 @@ void setup()
   CAN0.setMode(MCP_NORMAL); // Set operation mode to normal so the MCP2515 sends acks to received data.
 
   pinMode(CAN0_INT, INPUT); // Configuring pin for /INT input
+  pinMode(reset, INPUT);
 
   Serial.println("Setup has finished");
+}
+
+void masiveError()
+{
+  if (digitalRead(reset) == HIGH)
+  {
+    int x = 0;
+    while (x < totalErrors)
+    {
+      occ[x] = 0;
+      startTime[x] = 0;
+      endTime[x] = 0;
+      tempTime[x] = 0;
+      finalTime[x] = 0;
+      x++;
+    }
+    return;
+  }
+  else
+  {
+    Serial.println("Sofware Fuse has blown!!");
+    masiveError();
+  }
+}
+
+void getTimer(int errorNumber)
+{
+
+  if (occ[errorNumber] == 0)
+  {
+    occ[errorNumber]++;
+    startTime[errorNumber] = millis();
+    Serial.println(startTime[errorNumber] / 1000);
+  }
+  else
+  {
+    for (int x = 0; x < totalErrors; x++)
+    {
+      if (x != errorNumber)
+      {
+        occ[x] = 0;
+      }
+    }
+    endTime[errorNumber] = millis();
+    Serial.println(endTime[errorNumber] / 1000);
+    tempTime[errorNumber] = (endTime[errorNumber] - startTime[errorNumber]) / 1000;
+    if (finalTime[errorNumber] < tempTime[errorNumber])
+    {
+      finalTime[errorNumber] = tempTime[errorNumber];
+    }
+  }
+  if (errorNumber != 0)
+  {
+    if (finalTime[errorNumber] >= timeToBlow)
+    {
+      masiveError();
+    }
+  }
+  if (errorNumber != 0)
+  {
+    Serial.print("Error Number: ");
+    Serial.print(errorNumber);
+    Serial.print(" Elapsed time: ");
+    Serial.print(tempTime[errorNumber]);
+    Serial.print(" Biggest time: ");
+    Serial.println(finalTime[errorNumber]);
+  }
+  else
+  {
+    Serial.print(" Elapsed time: ");
+    Serial.print(tempTime[errorNumber]);
+    Serial.print(" Biggest time: ");
+    Serial.println(finalTime[errorNumber]);
+  }
+
+  // delay(1000);
+  return;
 }
 
 void dashboard()
@@ -148,34 +245,42 @@ void dashboard()
   case 1:
     Serial.println(showMessage);
     showMessage = "Data Valid but Above Normal Operational Range";
+    getTimer(errorNumber);
     break;
   case 2:
     Serial.println(showMessage);
     showMessage = "Data Valid but Below Normal Operational Range";
+    getTimer(errorNumber);
     break;
   case 3:
     Serial.println(showMessage);
     showMessage = "Data Erratic, Intermittent or Incorrect";
+    getTimer(errorNumber);
     break;
   case 4:
     Serial.println(showMessage);
     showMessage = "Voltage Above Normal, or Shorted to High Source";
+    getTimer(errorNumber);
     break;
   case 5:
     Serial.println(showMessage);
     showMessage = "Voltage Below Normal, or Shorted to Low Source";
+    getTimer(errorNumber);
     break;
   case 6:
     Serial.println(showMessage);
     showMessage = "Current Below Normal or Open Circuit";
+    getTimer(errorNumber);
     break;
   case 7:
     Serial.println(showMessage);
     showMessage = "Current Above Normal or Grounded Circuit";
+    getTimer(errorNumber);
     break;
   case 8:
     Serial.println(showMessage);
     showMessage = "Overload or Grounded Circuit"; // Software Fuse is blown
+    getTimer(errorNumber);
     break;
   }
   return;
@@ -237,6 +342,7 @@ void loop()
   {
     setPoint = 0;
   }
+
   CAN();
 }
 
