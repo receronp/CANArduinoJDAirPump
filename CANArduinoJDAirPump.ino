@@ -114,6 +114,27 @@ void setup()
   pinMode(reset, INPUT);
 
   Serial.println("Setup has finished");
+  // Can message
+  // rxBuf[7] -> Pressure
+  // 0x00 -> 0psi
+  //[...] -> XXpsi
+  // 0x97 -> 20psi
+
+  // rxBuf[6] -> Error Counter
+  // integer values (vantidad de veces que ha ocurrido la incidencia)
+
+  // rxBuf[5] -> Error (hexadecimal value)
+  // 0 -> No error (STM)
+  // 1 -> Data Valid but Above Normal Operational Range (ESP)
+  // 2 -> Data Valid but Below Normal Operational Range (ESP)
+  // 3 -> Data Erratic, Intermittent or Incorrect (STM)
+  // 4 -> Voltage Above Normal, or Shorted to High Source (STM)
+  // 5 -> Voltage Below Normal, or Shorted to Low Source (STM)
+  // 6 -> Current Below Normal or Open Circuit (STM)
+  // 7 -> Current Above Normal or Grounded Circuit (STM)
+  // rxBuf[4] -> vibration (digital)
+  // 1 -> is vibrating
+  // 0 -> is not vibrating
 }
 
 void masiveError()
@@ -193,6 +214,24 @@ void getTimer(int errorNumber)
   return;
 }
 
+void send()
+{
+  data[0] = compressor;
+
+  byte sndStat = CAN0.sendMsgBuf(0x255, 0, 8, data);
+  if (sndStat == CAN_OK)
+  {
+    Serial.println("Message Sent Successfully!");
+  }
+  else
+  {
+    Serial.println("Error Sending Message...");
+  }
+
+  delay(50); // 200
+  return;
+}
+
 void dashboard()
 {
   // error handler
@@ -230,6 +269,8 @@ void dashboard()
       compressor = 1;
     else
       compressor = 0;
+
+    send();
 
     // delay(500);
     if (rxBuf[rxVibrator] == 1 and compressor == 1)
@@ -316,19 +357,7 @@ void CAN()
 
     Serial.println();
   }
-  else
-  {
-    byte sndStat = CAN0.sendMsgBuf(0x255, 0, 8, data);
-    if (sndStat == CAN_OK)
-    {
-      Serial.println("Message sent!");
-    }
-    else
-    {
-      Serial.println("Error sending message.");
-    }
-  }
-  delay(200);
+  delay(50); // 200
 }
 
 void loop()
