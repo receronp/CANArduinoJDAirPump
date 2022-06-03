@@ -46,8 +46,6 @@ int startTime[totalErrors], endTime[totalErrors], tempTime[totalErrors], finalTi
 #define rxVibrator 4
 
 int canErrorCounter;
-int rawPressure;
-int compressor;
 
 // CAN varibles
 long unsigned int rxId;
@@ -87,7 +85,6 @@ void setup()
   vibration = false;
   showMessage = "";
   setPoint = 0.0;
-  compressor = 0;
 
   int x = 0;
   while (x < totalErrors)
@@ -100,7 +97,6 @@ void setup()
     x++;
   }
   canErrorCounter = 0;
-  compressor = 0;
 
   // Initialize MCP2515 running at 8MHz with a baudrate of 1000kb/s and the masks and filters disabled.
   if (CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) == CAN_OK)
@@ -156,6 +152,8 @@ void masiveError()
   else
   {
     Serial.println("Sofware Fuse has blown!!");
+    showMessage = "Overload or Grounded Circuit"; // Software Fuse is blown
+    Serial.println(showMessage);
     masiveError();
   }
 }
@@ -214,24 +212,6 @@ void getTimer(int errorNumber)
   return;
 }
 
-void send()
-{
-  data[0] = compressor;
-
-  byte sndStat = CAN0.sendMsgBuf(0x255, 0, 8, data);
-  if (sndStat == CAN_OK)
-  {
-    Serial.println("Message Sent Successfully!");
-  }
-  else
-  {
-    Serial.println("Error Sending Message...");
-  }
-
-  delay(50); // 200
-  return;
-}
-
 void dashboard()
 {
   // error handler
@@ -247,37 +227,20 @@ void dashboard()
   // strcat(showMessage, " times...");
   canErrorCounter = rxBuf[rxErrorCounter];
 
-  if (errorNumber != 0)
-  {
-    compressor = 0;
-  }
-
   switch (errorNumber)
   {
   case 0: // NO ERROR
     showMessage = "Inflating Tire";
-    rawPressure = rxBuf[rxPressure];
-    getPressure = rawPressure * 20.0 / 151.0;
+    getPressure = rxBuf[rxPressure] * 20.0 / 151.0;
 
-    if (getPressure + 2 >= setPoint && getPressure - 1 <= setPoint)
-    {
-      getPressure = setPoint;
-    }
     vibration = rxBuf[rxVibrator];
 
-    if (getPressure < setPoint)
-      compressor = 1;
-    else
-      compressor = 0;
-
-    send();
-
     // delay(500);
-    if (rxBuf[rxVibrator] == 1 and compressor == 1)
+    if (rxBuf[rxVibrator] == 1 && getPressure < setPoint)
     {
       showMessage = "Tire...";
     }
-    else if (rxBuf[rxVibrator] == 1 and compressor == 0 or rxBuf[rxVibrator] == 0 and compressor == 1)
+    else if (rxBuf[rxVibrator] == 1 && getPressure >= setPoint || rxBuf[rxVibrator] == 0 && getPressure < setPoint)
     {
       Serial.println("Vibration Error");
     }
@@ -316,11 +279,6 @@ void dashboard()
   case 7:
     Serial.println(showMessage);
     showMessage = "Current Above Normal or Grounded Circuit";
-    getTimer(errorNumber);
-    break;
-  case 8:
-    Serial.println(showMessage);
-    showMessage = "Overload or Grounded Circuit"; // Software Fuse is blown
     getTimer(errorNumber);
     break;
   }
@@ -363,15 +321,6 @@ void CAN()
 void loop()
 {
   ArduinoCloud.update();
-  if (setPoint > 20)
-  {
-    setPoint = 20;
-  }
-  else if (setPoint < 0)
-  {
-    setPoint = 0;
-  }
-
   CAN();
 }
 
@@ -382,6 +331,29 @@ void loop()
 void onSetPointChange()
 {
   // Add your code here to act upon SetPoint change
+  if (setPoint > 20)
+  {
+    setPoint = 20;
+  }
+  else if (setPoint < 0)
+  {
+    setPoint = 0;
+  }
+
+  data[0] = (byte)(setPoint * 151 / 20);
+
+  byte sndStat = CAN0.sendMsgBuf(0x255, 0, 8, data);
+  if (sndStat == CAN_OK)
+  {
+    Serial.println("Message Sent Successfully!");
+  }
+  else
+  {
+    Serial.println("Error Sending Message...");
+  }
+
+  delay(50); // 200
+  return;
 }
 
 /*
